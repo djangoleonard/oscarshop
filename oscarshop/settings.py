@@ -11,10 +11,12 @@ https://docs.djangoproject.com/en/1.10/ref/settings/
 """
 
 import os
+from oscar.defaults import *
+from oscar import get_core_apps
+from oscar import OSCAR_MAIN_TEMPLATE_DIR
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.10/howto/deployment/checklist/
@@ -27,17 +29,30 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
-
 # Application definition
 
 INSTALLED_APPS = [
-    'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
+    'django.contrib.sites',
     'django.contrib.messages',
+    'django.contrib.admin',
+    'django.contrib.flatpages',
     'django.contrib.staticfiles',
+    'django.contrib.sitemaps',
+    # 'django_extensions',
+    # Debug toolbar + extensions
+    # 'debug_toolbar',
+    # 'template_timings_panel',
+    # 'south',
+    # 'rosetta',          # For i18n testing
+    # 'compressor',
+    # 'apps.gateway',     # For allowing dashboard access
+    'widget_tweaks',
 ]
+
+INSTALLED_APPS = INSTALLED_APPS + get_core_apps()
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -47,29 +62,48 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'oscar.apps.basket.middleware.BasketMiddleware',
+    'django.contrib.flatpages.middleware.FlatpageFallbackMiddleware',
 ]
+
+AUTHENTICATION_BACKENDS = (
+    'oscar.apps.customer.auth_backends.EmailBackend',
+    'django.contrib.auth.backends.ModelBackend',
+)
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+    }
+}
 
 ROOT_URLCONF = 'oscarshop.urls'
 
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, 'templates')]
-        ,
+        'DIRS': [os.path.join(BASE_DIR, 'templates'),
+                 OSCAR_MAIN_TEMPLATE_DIR],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
                 'django.template.context_processors.debug',
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
+                'django.template.context_processors.i18n',
                 'django.contrib.messages.context_processors.messages',
+
+                'oscar.apps.search.context_processors.search_form',
+                'oscar.apps.promotions.context_processors.promotions',
+                'oscar.apps.checkout.context_processors.checkout',
+                'oscar.apps.customer.notifications.context_processors.notifications',
+                'oscar.core.context_processors.metadata',
             ],
         },
     },
 ]
 
 WSGI_APPLICATION = 'oscarshop.wsgi.application'
-
 
 # Database
 # https://docs.djangoproject.com/en/1.10/ref/settings/#databases
@@ -78,10 +112,15 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+        'ATOMIC_REQUESTS': True,
     }
 }
 
-
+HAYSTACK_CONNECTIONS = {
+    'default': {
+        'ENGINE': 'haystack.backends.simple_backend.SimpleEngine',
+    },
+}
 # Password validation
 # https://docs.djangoproject.com/en/1.10/ref/settings/#auth-password-validators
 
@@ -100,11 +139,36 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
 # https://docs.djangoproject.com/en/1.10/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'tr'
+
+# Includes all languages that have >50% coverage in Transifex
+# Taken from Django's default setting for LANGUAGES
+
+gettext_noop = lambda s: s
+
+LANGUAGES = (
+    ('en-gb', gettext_noop('British English')),
+    ('zh-cn', gettext_noop('Simplified Chinese')),
+    ('nl', gettext_noop('Dutch')),
+    ('it', gettext_noop('Italian')),
+    ('pl', gettext_noop('Polish')),
+    ('ru', gettext_noop('Russian')),
+    ('sk', gettext_noop('Slovak')),
+    ('pt-br', gettext_noop('Brazilian Portuguese')),
+    ('fr', gettext_noop('French')),
+    ('de', gettext_noop('German')),
+    ('ko', gettext_noop('Korean')),
+    ('uk', gettext_noop('Ukrainian')),
+    ('es', gettext_noop('Spanish')),
+    ('da', gettext_noop('Danish')),
+    ('ar', gettext_noop('Arabic')),
+    ('ca', gettext_noop('Catalan')),
+    ('cs', gettext_noop('Czech')),
+    ('el', gettext_noop('Greek')),
+)
 
 TIME_ZONE = 'UTC'
 
@@ -114,8 +178,74 @@ USE_L10N = True
 
 USE_TZ = True
 
-
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.10/howto/static-files/
 
+# Absolute path to the directory static files should be collected to.
+# Example: "/var/www/example.com/static/"
+STATIC_ROOT = os.path.join(BASE_DIR, 'cdn', 'static')
+
+# Static files (CSS, JavaScript, Images)
+# https://docs.djangoproject.com/en/1.10/howto/static-files/
+# URL that handles the static files served from STATIC_ROOT.
+# Example: "http://example.com/static/", "http://static.example.com/"
 STATIC_URL = '/static/'
+
+# Absolute filesystem path to the directory that will hold user-uploaded files.
+# Example: "/var/www/example.com/media/"
+MEDIA_ROOT = os.path.join(BASE_DIR, 'cdn', 'media')
+
+# URL that handles the media served from MEDIA_ROOT.
+# Examples: "http://example.com/media/", "http://media.example.com/"
+MEDIA_URL = '/media/'
+
+############
+# FIXTURES #
+############
+
+# The list of directories to search for fixtures
+FIXTURE_DIRS = [os.path.join(BASE_DIR, 'fixture')]
+
+###############
+# STATICFILES #
+###############
+
+# A list of locations of additional static files
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+
+# If you set this to False, Django will make some optimizations so as not
+# to load the internationalization machinery.
+# USE_I18N = True
+LOCALE_PATHS = [os.path.join(BASE_DIR, "locale")]
+
+# ==============
+# Oscar settings
+# ==============
+
+# from oscar.defaults import *
+
+# Meta
+# ====
+
+OSCAR_SHOP_TAGLINE = 'Sandbox'
+
+OSCAR_RECENTLY_VIEWED_PRODUCTS = 20
+OSCAR_ALLOW_ANON_CHECKOUT = True
+
+# This is added to each template context by the core context processor.  It is
+# useful for test/stage/qa sites where you want to show the version of the site
+# in the page title.
+DISPLAY_VERSION = False
+
+# Order processing
+# ================
+
+# Some sample order/line status settings
+OSCAR_INITIAL_ORDER_STATUS = 'Pending'
+OSCAR_INITIAL_LINE_STATUS = 'Pending'
+OSCAR_ORDER_STATUS_PIPELINE = {
+    'Pending': ('Being processed', 'Cancelled',),
+    'Being processed': ('Processed', 'Cancelled',),
+    'Cancelled': (),
+    'Processed': (),
+}
